@@ -29,7 +29,7 @@ Usage:
         custom_eval.eval_types=[reward_alignment] \
         custom_eval.reward_alignment=[jesbu1_roboreward_rfm_roboreward_test] \
         custom_eval.reward_alignment_max_trajectories=null \
-        max_frames=4 \
+        max_frames=8 \
         model_config.batch_size=32
 """
 

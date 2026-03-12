@@ -131,10 +131,10 @@ uv run python scripts/example_inference_local.py \
 uv run accelerate launch --config_file robometer/configs/distributed/fsdp.yaml train.py \
   data.train_datasets=[rbm-1m-id] \
   data.eval_datasets=[rbm-1m-ood] \
-  data.max_frames=4 \
+  data.max_frames=8 \
   model.train_progress_head=true \
   model.train_preference_head=true \
-  training.max_steps=5000 \
+  training.max_steps=15000 \
   custom_eval.reward_alignment=[rbm-1m-ood] \
   custom_eval.policy_ranking=[rbm-1m-ood] \
   custom_eval.confusion_matrix=[rbm-1m-ood]
@@ -146,7 +146,7 @@ uv run accelerate launch --config_file robometer/configs/distributed/fsdp.yaml t
 uv run accelerate launch --config_file robometer/configs/distributed/fsdp.yaml train.py \
   data.train_datasets=[libero_pi0] \
   data.eval_datasets=[mw] \
-  data.max_frames=4 \
+  data.max_frames=8 \
   model.train_progress_head=true \
   model.train_preference_head=true \
   training.max_steps=5000 \
@@ -189,7 +189,7 @@ uv run python robometer/evals/run_baseline_eval.py \
     custom_eval.use_frame_steps=true \
     custom_eval.subsample_n_frames=5 \
     custom_eval.reward_alignment_max_trajectories=30 \
-    max_frames=4 \
+    max_frames=8 \
     model_config.batch_size=32
 ```
 
@@ -203,7 +203,7 @@ uv run python robometer/evals/run_baseline_eval.py \
     custom_eval.policy_ranking=[rbm-1m-ood] \
     custom_eval.use_frame_steps=false \
     custom_eval.num_examples_per_quality_pr=1000 \
-    max_frames=4 \
+    max_frames=8 \
     model_config.batch_size=32
 ```
 
@@ -215,7 +215,7 @@ uv run python robometer/evals/run_baseline_eval.py \
     model_path=robometer/Robometer-4B \
     custom_eval.eval_types=[confusion_matrix] \
     custom_eval.confusion_matrix=[[aliangdw_usc_franka_policy_ranking_usc_franka_policy_ranking,jesbu1_utd_so101_clean_policy_ranking_top_utd_so101_clean_policy_ranking_top,aliangdw_usc_xarm_policy_ranking_usc_xarm_policy_ranking]] \
-    max_frames=4 \
+    max_frames=8 \
     model_config.batch_size=32
 ```
 
