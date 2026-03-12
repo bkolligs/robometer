@@ -65,7 +65,7 @@ uv run python robometer/evals/run_baseline_eval.py \
     custom_eval.use_frame_steps=true \
     custom_eval.subsample_n_frames=5 \
     custom_eval.reward_alignment_max_trajectories=30 \
-    max_frames=4 \
+    max_frames=8 \
     model_config.batch_size=32
 
 # Robometer-4B Libero Ablation
@@ -76,5 +76,5 @@ uv run python robometer/evals/run_baseline_eval.py \
     custom_eval.reward_alignment=[libero_pi0] \
     custom_eval.use_frame_steps=false \
     custom_eval.reward_alignment_max_trajectories=100 \
-    max_frames=4 \
+    max_frames=8 \
     model_config.batch_size=32
