@@ -394,12 +394,17 @@ class SaveBestCallback(TrainerCallback):
         # Check if we're using PEFT
         is_peft = False
         base_model = None
-        if hasattr(model, "model") and isinstance(model.model, PeftModel):
+
+        # this depends on if model is wrapped via DDP/FSDP for multi-gpu training or something
+        if isinstance(model, PeftModel):
+            is_peft = True
+            base_model = model
+        elif hasattr(model, "model") and isinstance(model.model, PeftModel):
             is_peft = True
             base_model = model.model
-            logger.info("Detected PEFT model - using standard PeftModel.save_pretrained() for adapter weights")
 
         if is_peft:
+            logger.info("Detected PEFT model - using standard PeftModel.save_pretrained() for adapter weights")
             # For PEFT models, we need to save:
             # 1. Adapter weights using PeftModel.save_pretrained() (saves adapter_model.safetensors + adapter_config.json)
             # 2. Custom heads (progress_head, etc.) from RBM wrapper
@@ -465,6 +470,7 @@ class SaveBestCallback(TrainerCallback):
                     "PEFT adapter weights file not found - adapter weights may not have been saved correctly"
                 )
         else:
+            logger.info("Detected non-PEFT model - using standard save_model()")
             # For non-PEFT models, use standard save_model()
             self._trainer.save_model(ckpt_dir)
 
