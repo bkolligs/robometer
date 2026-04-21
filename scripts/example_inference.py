@@ -7,9 +7,14 @@ then saves per-frame progress and success predictions plus an optional plot.
 
 Example:
   # Start the server first (in another terminal):
-  #   uv run python robometer/evals/eval_server.py --config_path=robometer/configs/config.yaml --host=0.0.0.0 --port=8000
+  #   uv run python robometer/evals/eval_server.py \
+  #       --config_path=robometer/configs/config.yaml \
+  #       --host=0.0.0.0 --port=8000
 
-  python scripts/example_inference.py --eval-server-url http://localhost:8000 --video /path/to/video.mp4 --task "Pick up the red block"
+  python scripts/example_inference.py \
+      --eval-server-url http://localhost:8000 \
+      --video /path/to/video.mp4 \
+      --task "Pick up the red block"
 """
 
 from __future__ import annotations
@@ -19,24 +24,23 @@ import io
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
-
-import numpy as np
-import requests
+from typing import Any
 
 import matplotlib.pyplot as plt
+import numpy as np
+import requests
 
 
 def create_combined_progress_success_plot(
     progress_pred: np.ndarray,
     num_frames: int,
-    success_binary: Optional[np.ndarray] = None,
-    success_probs: Optional[np.ndarray] = None,
-    success_labels: Optional[np.ndarray] = None,
+    success_binary: np.ndarray | None = None,
+    success_probs: np.ndarray | None = None,
+    success_labels: np.ndarray | None = None,
     is_discrete_mode: bool = False,
-    title: Optional[str] = None,
-    loss: Optional[float] = None,
-    pearson: Optional[float] = None,
+    title: str | None = None,
+    loss: float | None = None,
+    pearson: float | None = None,
 ) -> Any:
     """Create a combined plot with progress, success binary, and success probabilities.
 
@@ -185,7 +189,7 @@ def extract_frames(video_path: str, fps: float = 1.0) -> np.ndarray:
         # Compute how many frames we want based on desired fps
         # num_frames ≈ total_duration * fps = total_frames * (fps / native_fps)
         if native_fps > 0:
-            desired_frames = int(round(total_frames * (fps / native_fps)))
+            desired_frames = round(total_frames * (fps / native_fps))
         else:
             desired_frames = total_frames
 
@@ -202,7 +206,7 @@ def extract_frames(video_path: str, fps: float = 1.0) -> np.ndarray:
         del vr
         return frames_array
     except Exception as e:
-        raise RuntimeError(f"Error extracting frames from {video_path}: {e}")
+        raise RuntimeError(f"Error extracting frames from {video_path}: {e}") from e
 
 
 def load_frames_input(
@@ -243,14 +247,14 @@ def load_frames_input(
     return frames_array
 
 
-def _numpy_to_npy_file_tuple(arr: np.ndarray, filename: str) -> Tuple[str, io.BytesIO, str]:
+def _numpy_to_npy_file_tuple(arr: np.ndarray, filename: str) -> tuple[str, io.BytesIO, str]:
     buf = io.BytesIO()
     np.save(buf, arr)
     buf.seek(0)
     return (filename, buf, "application/octet-stream")
 
 
-def build_multipart_payload(samples: List[Dict[str, Any]]) -> Tuple[Dict[str, Any], Dict[str, str]]:
+def build_multipart_payload(samples: list[dict[str, Any]]) -> tuple[dict[str, Any], dict[str, str]]:
     """
     Convert a list of sample dicts into:
       - files: mapping for requests.post(files=...)
@@ -259,8 +263,8 @@ def build_multipart_payload(samples: List[Dict[str, Any]]) -> Tuple[Dict[str, An
     Numpy arrays inside trajectory fields are moved to .npy blobs and replaced by
     {"__numpy_file__": <file_key>} references.
     """
-    files: Dict[str, Any] = {}
-    data: Dict[str, str] = {}
+    files: dict[str, Any] = {}
+    data: dict[str, str] = {}
 
     numpy_fields = ["frames", "lang_vector", "video_embeddings"]
 
@@ -286,7 +290,7 @@ def build_multipart_payload(samples: List[Dict[str, Any]]) -> Tuple[Dict[str, An
                 traj_copy[field] = val
 
         # Keep a helpful frames_shape (as list of ints) if present
-        if "frames_shape" in traj_copy and isinstance(traj_copy["frames_shape"], (tuple, list)):
+        if "frames_shape" in traj_copy and isinstance(traj_copy["frames_shape"], tuple | list):
             traj_copy["frames_shape"] = [int(x) for x in traj_copy["frames_shape"]]
 
         sample_copy["trajectory"] = traj_copy
@@ -297,10 +301,10 @@ def build_multipart_payload(samples: List[Dict[str, Any]]) -> Tuple[Dict[str, An
 
 def post_evaluate_batch_npy(
     eval_server_url: str,
-    samples: List[Dict[str, Any]],
+    samples: list[dict[str, Any]],
     timeout_s: float = 120.0,
     use_frame_steps: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     files, data = build_multipart_payload(samples)
     data["use_frame_steps"] = "true" if use_frame_steps else "false"
     url = eval_server_url.rstrip("/") + "/evaluate_batch_npy"
@@ -309,7 +313,29 @@ def post_evaluate_batch_npy(
     return resp.json()
 
 
-def extract_rewards_from_server_output(outputs: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray]:
+def extract_batch_rewards_from_server_output(outputs: dict[str, Any]) -> list[tuple[np.ndarray, np.ndarray]]:
+    """Parse server JSON into one `(progress, success_probs)` pair per sample."""
+    outputs_progress = outputs.get("outputs_progress")
+    if outputs_progress is None:
+        raise ValueError("No `outputs_progress` in server response")
+
+    progress_pred = outputs_progress.get("progress_pred", [])
+    outputs_success = outputs.get("outputs_success", {})
+    success_probs = outputs_success.get("success_probs", []) if outputs_success else []
+
+    batch_outputs: list[tuple[np.ndarray, np.ndarray]] = []
+    for index, progress_values in enumerate(progress_pred):
+        progress_array = np.array(progress_values or [], dtype=np.float32)
+        if index < len(success_probs):
+            success_array = np.array(success_probs[index] or [], dtype=np.float32)
+        else:
+            success_array = np.array([], dtype=np.float32)
+        batch_outputs.append((progress_array, success_array))
+
+    return batch_outputs
+
+
+def extract_rewards_from_server_output(outputs: dict[str, Any]) -> tuple[np.ndarray, np.ndarray]:
     """
     Parse server JSON into per-frame progress and success probability arrays.
 
@@ -317,24 +343,10 @@ def extract_rewards_from_server_output(outputs: Dict[str, Any]) -> Tuple[np.ndar
         progress_array: Per-frame progress (reward) predictions for the first sample.
         success_array: Per-frame success probabilities, or empty array if not in response.
     """
-    outputs_progress = outputs.get("outputs_progress")
-    if outputs_progress is None:
-        raise ValueError("No `outputs_progress` in server response")
-    progress_pred = outputs_progress.get("progress_pred", [])
-
-    if progress_pred and len(progress_pred) > 0:
-        progress_array = np.array(progress_pred[0], dtype=np.float32)
-    else:
-        progress_array = np.array([], dtype=np.float32)
-
-    outputs_success = outputs.get("outputs_success", {})
-    success_probs = outputs_success.get("success_probs", []) if outputs_success else []
-    if success_probs and len(success_probs) > 0:
-        success_array = np.array(success_probs[0], dtype=np.float32)
-    else:
-        success_array = np.array([], dtype=np.float32)
-
-    return progress_array, success_array
+    batch_outputs = extract_batch_rewards_from_server_output(outputs)
+    if not batch_outputs:
+        return np.array([], dtype=np.float32), np.array([], dtype=np.float32)
+    return batch_outputs[0]
 
 
 def make_progress_sample(
@@ -342,7 +354,7 @@ def make_progress_sample(
     task: str,
     sample_id: str,
     subsequence_length: int,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     return {
         "sample_type": "progress",
         "trajectory": {
@@ -362,7 +374,7 @@ def compute_rewards_per_frame(
     task: str,
     timeout_s: float = 120.0,
     use_frame_steps: bool = False,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Send the full trajectory to the eval server and get per-frame progress and success.
 
@@ -388,10 +400,57 @@ def compute_rewards_per_frame(
     return extract_rewards_from_server_output(outputs)
 
 
+def compute_expanded_rewards_per_frame(
+    eval_server_url: str,
+    video_frames: np.ndarray,
+    task: str,
+    timeout_s: float = 120.0,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Expand a trajectory into prefixes on the client and assemble per-prefix outputs."""
+    total_frames = int(video_frames.shape[0])
+    samples = [
+        make_progress_sample(
+            frames=video_frames[:prefix_length],
+            task=task,
+            sample_id=str(prefix_length - 1),
+            subsequence_length=prefix_length,
+        )
+        for prefix_length in range(1, total_frames + 1)
+    ]
+    outputs = post_evaluate_batch_npy(
+        eval_server_url,
+        samples,
+        timeout_s=timeout_s,
+        use_frame_steps=False,
+    )
+    batch_outputs = extract_batch_rewards_from_server_output(outputs)
+    if len(batch_outputs) != len(samples):
+        raise ValueError(f"Server returned {len(batch_outputs)} outputs for {len(samples)} requested samples")
+
+    rewards: list[float] = []
+    success_probs: list[float] = []
+    saw_success = False
+    for progress_array, success_array in batch_outputs:
+        rewards.append(float(progress_array[-1]) if progress_array.size > 0 else 0.0)
+        if success_array.size > 0:
+            saw_success = True
+            success_probs.append(float(success_array[-1]))
+        else:
+            success_probs.append(0.0)
+
+    rewards_array = np.array(rewards, dtype=np.float32)
+    if not saw_success:
+        return rewards_array, np.array([], dtype=np.float32)
+    return rewards_array, np.array(success_probs, dtype=np.float32)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Get per-frame progress and success predictions from an RBM eval server.",
-        epilog="Start the server with: uv run python robometer/evals/eval_server.py --config_path=robometer/configs/config.yaml --host=0.0.0.0 --port=8000",
+        epilog=(
+            "Start the server with: uv run python robometer/evals/eval_server.py "
+            "--config_path=robometer/configs/config.yaml --host=0.0.0.0 --port=8000"
+        ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
@@ -420,6 +479,11 @@ def main() -> None:
         help="If set, server uses frame-step expansion (0:1, 0:2, ...) and aggregates; can improve reward alignment",
     )
     parser.add_argument(
+        "--expand",
+        action="store_true",
+        help="If set, expand client-side into prefixes (0:1, 0:2, ...) and assemble one output per prefix",
+    )
+    parser.add_argument(
         "--success-threshold",
         type=float,
         default=0.5,
@@ -432,19 +496,29 @@ def main() -> None:
         help="Output path for rewards .npy (default: <video_stem>_rewards.npy)",
     )
     args = parser.parse_args()
+    if args.expand and args.use_frame_steps:
+        parser.error("--expand cannot be used with --use-frame-steps")
 
     video_path = Path(args.video)
     out_path = Path(args.out) if args.out is not None else video_path.with_name(video_path.stem + "_rewards.npy")
 
     frames = load_frames_input(str(args.video), fps=float(args.fps))
 
-    rewards, success_probs = compute_rewards_per_frame(
-        eval_server_url=args.eval_server_url,
-        video_frames=frames,
-        task=args.task,
-        timeout_s=float(args.timeout_s),
-        use_frame_steps=args.use_frame_steps,
-    )
+    if args.expand:
+        rewards, success_probs = compute_expanded_rewards_per_frame(
+            eval_server_url=args.eval_server_url,
+            video_frames=frames,
+            task=args.task,
+            timeout_s=float(args.timeout_s),
+        )
+    else:
+        rewards, success_probs = compute_rewards_per_frame(
+            eval_server_url=args.eval_server_url,
+            video_frames=frames,
+            task=args.task,
+            timeout_s=float(args.timeout_s),
+            use_frame_steps=args.use_frame_steps,
+        )
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     np.save(str(out_path), rewards)
