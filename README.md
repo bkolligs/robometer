@@ -30,7 +30,7 @@ robometer/
 │   ├── models/             # Model definitions
 │   └── evals/              # Baseline evals (GVL, VLAC, Robodopamine, etc.)
 ├── eval_commands/          # Shell scripts for baseline evals
-├── train.py                # Training entrypoint
+├── robometer/scripts/train.py  # Training entrypoint
 └── pyproject.toml          # Dependencies (uv)
 ```
 
@@ -130,7 +130,7 @@ First, modify `robometer/configs/config.yaml`'s `wandb_entity` flag to your Wand
 See more flags in the config file (e.g., batch size, learning rates, etc.)
 
 ```bash
-uv run accelerate launch --config_file robometer/configs/distributed/fsdp.yaml --num_processes=N_GPUS_YOU_HAVE train.py \
+uv run accelerate launch --config_file robometer/configs/distributed/fsdp.yaml --num_processes=N_GPUS_YOU_HAVE -m robometer.scripts.train \
   data.train_datasets=[rbm-1m-id] \
   data.eval_datasets=[rbm-1m-ood] \
   data.max_frames=8 \
@@ -148,7 +148,7 @@ uv run accelerate launch --config_file robometer/configs/distributed/fsdp.yaml -
 First, modify `robometer/configs/config.yaml`'s `wandb_entity` flag to your WandB entity. To disable WandB logging, remove "wandb" from the `log_to` list in the config yaml file.
 
 ```bash
-uv run accelerate launch --config_file robometer/configs/distributed/fsdp.yaml train.py \
+uv run accelerate launch --config_file robometer/configs/distributed/fsdp.yaml -m robometer.scripts.train \
   data.train_datasets=[libero_pi0] \
   data.eval_datasets=[libero_pi0] \
   data.max_frames=8 \
@@ -239,10 +239,10 @@ Supported: **AgiBotWorld** (streaming), **LIBERO** (HDF5), and custom configs.
 
 ```bash
 # AgiBotWorld
-uv run python dataset_upload/generate_hf_dataset.py --config_path=dataset_upload/configs/data_gen_configs/agibot_world.yaml
+uv run python -m robometer.dataset_upload.generate_hf_dataset --config_path=robometer/dataset_upload/configs/data_gen_configs/agibot_world.yaml
 
 # LIBERO
-uv run python dataset_upload/generate_hf_dataset.py --config_path=dataset_upload/configs/data_gen.yaml \
+uv run python -m robometer.dataset_upload.generate_hf_dataset --config_path=robometer/dataset_upload/configs/data_gen.yaml \
   --dataset.dataset_path=LIBERO/libero/datasets/libero_90 --dataset.dataset_name=libero_90
 ```
 

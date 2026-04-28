@@ -18,8 +18,8 @@ Training needs a **preprocessed** cache from a HuggingFace dataset in RBM format
    ```bash
    export HF_TOKEN=your_token_here
 
-   uv run python -m dataset_upload.generate_hf_dataset \
-     --config_path dataset_upload/configs/data_gen_configs/robofac.yaml \
+   uv run python -m robometer.dataset_upload.generate_hf_dataset \
+     --config_path robometer/dataset_upload/configs/data_gen_configs/robofac.yaml \
      --dataset.dataset_path=$ROBOMETER_DATASET_PATH/RoboFAC-dataset \
      --hub.push_to_hub=true \
      --hub.hub_repo_id=robofac_rbm
@@ -66,7 +66,7 @@ Use PEFT (LoRA) and `load_from_checkpoint` from a Qwen3-4B–based RBM checkpoin
 ```bash
 export ROBOMETER_PROCESSED_DATASETS_PATH=/path/to/your/processed_datasets
 
-uv run python train.py \
+uv run python -m robometer.scripts.train \
   model.base_model_id=Qwen/Qwen3-VL-4B-Instruct \
   model.use_peft=true \
   model.train_progress_head=true \
@@ -94,7 +94,7 @@ uv run python train.py \
 
 The short name `robofac` is defined in `name_mapping.py` for `aliangdw_robofac_rbm_robofac`.
 
-**Tunable LoRA / training:** Override `training.learning_rate`, `training.warmup_ratio`, `training.weight_decay`, `training.gradient_accumulation_steps`, or `training.max_steps` as needed. Defaults above match `robometer/configs/config.yaml`. Multi-GPU: `uv run accelerate launch --config_file robometer/configs/distributed/fsdp.yaml train.py ...` (same overrides).
+**Tunable LoRA / training:** Override `training.learning_rate`, `training.warmup_ratio`, `training.weight_decay`, `training.gradient_accumulation_steps`, or `training.max_steps` as needed. Defaults above match `robometer/configs/config.yaml`. Multi-GPU: `uv run accelerate launch --config_file robometer/configs/distributed/fsdp.yaml -m robometer.scripts.train ...` (same overrides).
 
 ### Full fine-tuning (no PEFT)
 
@@ -103,7 +103,7 @@ Load the same checkpoint but train the full model (no LoRA). Uses more memory; l
 ```bash
 export ROBOMETER_PROCESSED_DATASETS_PATH=/path/to/your/processed_datasets
 
-uv run accelerate launch --config_file robometer/configs/distributed/fsdp.yaml --num_processes=N_GPUS_YOU_HAVE train.py \
+uv run accelerate launch --config_file robometer/configs/distributed/fsdp.yaml --num_processes=N_GPUS_YOU_HAVE -m robometer.scripts.train \
   model.base_model_id=Qwen/Qwen3-VL-4B-Instruct \
   model.use_peft=false \
   model.train_progress_head=true \
@@ -160,12 +160,12 @@ Server: `uv run python robometer/evals/eval_server.py ... model_path=aliangdw/ro
 
 ## 5. Baseline: Fine-tune from base Qwen-VL (no Robometer checkpoint)
 
-For comparison, run the same `train.py` on the same data but **without** loading a Robometer checkpoint. Training starts from the base Qwen-VL plus randomly initialized progress/preference heads.
+For comparison, run the same `robometer.scripts.train` on the same data but **without** loading a Robometer checkpoint. Training starts from the base Qwen-VL plus randomly initialized progress/preference heads.
 
 ```bash
 export ROBOMETER_PROCESSED_DATASETS_PATH=/path/to/your/processed_datasets
 
-uv run accelerate launch --config_file robometer/configs/distributed/fsdp.yaml --num_processes=N_GPUS_YOU_HAVE train.py \
+uv run accelerate launch --config_file robometer/configs/distributed/fsdp.yaml --num_processes=N_GPUS_YOU_HAVE -m robometer.scripts.train \
   model.base_model_id=Qwen/Qwen3-VL-4B-Instruct \
   model.use_peft=true \
   model.train_progress_head=true \
@@ -187,7 +187,7 @@ uv run accelerate launch --config_file robometer/configs/distributed/fsdp.yaml -
   training.eval_steps=50 \
   training.custom_eval_steps=50
 
-uv run accelerate launch --config_file robometer/configs/distributed/fsdp.yaml --num_processes=N_GPUS_YOU_HAVE train.py \
+uv run accelerate launch --config_file robometer/configs/distributed/fsdp.yaml --num_processes=N_GPUS_YOU_HAVE -m robometer.scripts.train \
   model.base_model_id=Qwen/Qwen3-VL-4B-Instruct \
   model.use_peft=false \
   model.train_progress_head=true \

@@ -491,7 +491,7 @@ def _load_base_model_with_unsloth(
         extra_kwargs: Extra kwargs for model loading (e.g., attn_implementation)
         peft_config: Optional PEFT configuration
         loading_from_checkpoint: If True, skip PEFT application (checkpoint already has weights)
-        apply_peft: If False, do not apply PEFT (e.g. when loading from checkpoint that has no adapter files; PEFT added later in train.py)
+        apply_peft: If False, do not apply PEFT (e.g. when loading from checkpoint that has no adapter files; PEFT added later in the training entrypoint)
 
     Returns:
         Tuple of (base_model, tokenizer)
@@ -510,7 +510,7 @@ def _load_base_model_with_unsloth(
         trust_remote_code=True,
     )
 
-    # Apply PEFT if enabled (skip when apply_peft=False, e.g. checkpoint has no adapter files; train.py will add PEFT later)
+    # Apply PEFT if enabled (skip when apply_peft=False, e.g. checkpoint has no adapter files; training will add PEFT later)
     if apply_peft and cfg.use_peft and peft_config:
         if loading_from_checkpoint:
             logger.info("Applying PEFT configuration to base model (needed to load adapter weights from checkpoint)")
@@ -528,7 +528,7 @@ def _load_base_model_with_unsloth(
             bias=peft_config.bias,
         )
     elif cfg.use_peft and not apply_peft:
-        logger.info("Skipping PEFT here; checkpoint has no adapter files, PEFT will be added in train.py")
+        logger.info("Skipping PEFT here; checkpoint has no adapter files, PEFT will be added by the training entrypoint")
 
     # Extract inner model after PEFT is applied (if needed for RBM wrapper)
     # IMPORTANT: After FastVisionModel.get_peft_model(), base_model.model should be a PeftModel

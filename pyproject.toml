@@ -84,6 +84,9 @@ dependencies = [
 [project.urls]
 Repository = "https://github.com/robometer/robometer"
 
+[project.scripts]
+robometer-train = "robometer.scripts.train:main"
+
 # ==================================================================================
 # Optional Dependencies
 # These are groups of dependencies for specific purposes, like development or
@@ -123,6 +126,20 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["robometer"]
+exclude = [
+    "/robometer/configs/**",
+    "/robometer/dataset_upload/configs/**",
+    "/robometer/dataset_upload/dataset_helpers/**",
+    "/robometer/dataset_upload/dataset_guides/**",
+    "/robometer/dataset_upload/data_scripts/**",
+]
+
+[tool.hatch.build.targets.wheel.force-include]
+"robometer/configs" = "robometer/configs"
+"robometer/dataset_upload/configs" = "robometer/dataset_upload/configs"
+"robometer/dataset_upload/dataset_helpers" = "robometer/dataset_upload/dataset_helpers"
+"robometer/dataset_upload/dataset_guides" = "robometer/dataset_upload/dataset_guides"
+"robometer/dataset_upload/data_scripts" = "robometer/dataset_upload/data_scripts"
 
 [tool.hatch.metadata]
 allow-direct-references = true

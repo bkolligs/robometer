@@ -34,7 +34,7 @@ setup(
     python_requires=">=3.10",
     entry_points={
         "console_scripts": [
-            "robometer-train=train:main",
+            "robometer-train=robometer.scripts.train:main",
         ],
     },
     include_package_data=True,
